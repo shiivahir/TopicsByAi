@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StudyTrack — AI Study Companion</title>
+  <meta name="description" content="Upload PDFs, let Gemini AI extract topics, track your study progress, take rich notes, and get instant summaries."/>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet"/>
+
+  <!-- PDF.js (CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     NAVBAR
+═══════════════════════════════════════════════ -->
+<nav id="mainNav">
+  <button class="nav-brand" onclick="navTo('home')">
+    <div class="logo-icon">📚</div>
+    <span>StudyTrack</span>
+  </button>
+
+  <ul class="nav-links" id="navLinks">
+    <li><button onclick="navTo('home')"    id="nav-home"    class="nav-link active">Home</button></li>
+    <li><button onclick="navTo('files')"   id="nav-files"   class="nav-link">My Files</button></li>
+    <li><button onclick="navTo('viewer')"  id="nav-viewer"  class="nav-link">PDF Viewer</button></li>
+    <li><button onclick="navTo('topics')"  id="nav-topics"  class="nav-link">Topics</button></li>
+    <li><button onclick="navTo('insights')"id="nav-insights" class="nav-link">Insights</button></li>
+    <li><button onclick="navTo('help')"    id="nav-help"    class="nav-link">Help</button></li>
+    <li><button onclick="navTo('contact')" id="nav-contact" class="nav-link">Contact</button></li>
+  </ul>
+
+  <div class="nav-right">
+    <button class="guest-badge" id="guestBadge" onclick="showUserPanel()">
+      <span id="userAvatar">👤</span>
+      <span id="guestIdDisplay">Guest</span>
+    </button>
+    <button class="hamburger" id="hamburgerBtn" onclick="toggleMobileMenu()" aria-label="Toggle menu">
+      <span class="ham-line"></span>
+      <span class="ham-line"></span>
+      <span class="ham-line"></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════
+     MOBILE MENU
+═══════════════════════════════════════════════ -->
+<div class="mobile-menu" id="mobileMenu" aria-hidden="true">
+  <button onclick="mobileNavTo('home')">🏠 Home</button>
+  <button onclick="mobileNavTo('files')">📁 My Files</button>
+  <button onclick="mobileNavTo('viewer')">📄 PDF Viewer</button>
+  <button onclick="mobileNavTo('topics')">📋 Topics</button>
+  <button onclick="mobileNavTo('insights')">📊 Insights</button>
+  <button onclick="mobileNavTo('help')">❓ Help</button>
+  <button onclick="mobileNavTo('contact')">✉️ Contact</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TOAST CONTAINER
+═══════════════════════════════════════════════ -->
+<div id="toastContainer" aria-live="polite"></div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL: USER / GUEST PANEL
+═══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="userModal" onclick="handleOverlayClick(event,'userModal')">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+    <h2 id="userModalTitle">Your Session</h2>
+    <div id="userModalBody"><!-- filled dynamically --></div>
+    <div class="modal-actions" id="userModalActions">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('userModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODAL: DELETE FILE CONFIRM
+═══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="deleteModal" onclick="handleOverlayClick(event,'deleteModal')">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2>Delete File?</h2>
+    <p id="deleteModalMsg">This will remove the file and all its topics and notes permanently.</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="btn btn-danger btn-sm" id="confirmDeleteBtn">Yes, Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE: HOME
+═══════════════════════════════════════════════ -->
+<section id="page-home" class="page active">
+  <div class="hero">
+    <div class="hero-orb hero-orb-1"></div>
+    <div class="hero-orb hero-orb-2"></div>
+    <div class="hero-inner">
+      <div class="hero-badge">Powered by Gemini 2.5 Flash · Free · No Sign-up Required</div>
+      <h1>Study smarter with<br/><em>AI-powered tracking</em></h1>
+      <p>Upload your PDFs, let AI extract every topic, track your progress, take rich notes, and get instant summaries — all in one beautiful workspace.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" onclick="navTo('files')">📁 Upload Your First PDF</button>
+        <button class="btn btn-secondary" onclick="navTo('help')">❓ How It Works</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="features-strip">
+    <div class="feature-card">
+      <div class="feature-icon">🤖</div>
+      <h3>AI Topic Extraction</h3>
+      <p>Gemini reads your entire PDF and auto-generates a topic list split into Covered &amp; Remaining.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📄</div>
+      <h3>Full PDF Viewer</h3>
+      <p>Navigate every page of your PDFs with smooth page controls and zoom — no tab switching.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📝</div>
+      <h3>Rich Notes Panel</h3>
+      <p>Take Notion-style notes alongside your PDF with bold, lists, headings, and more.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Live Insights</h3>
+      <p>Real-time charts showing coverage %, completion trends, and your important topics.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⭐</div>
+      <h3>Priority Marking</h3>
+      <p>Star important topics, filter your list, and focus on what matters most before exams.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">✨</div>
+      <h3>AI Summary</h3>
+      <p>One-click AI summary of any PDF — key themes, core concepts, and personalized study tips.</p>
+    </div>
+  </div>
+
+  <!-- Quick Stats Banner -->
+  <div class="quick-stats-banner" id="quickStatsBanner">
+    <div class="qs-item">
+      <span class="qs-val" id="qs-files">0</span>
+      <span class="qs-label">Files</span>
+    </div>
+    <div class="qs-divider"></div>
+    <div class="qs-item">
+      <span class="qs-val" id="qs-topics">0</span>
+      <span class="qs-label">Topics</span>
+    </div>
+    <div class="qs-divider"></div>
+    <div class="qs-item">
+      <span class="qs-val" id="qs-covered">0</span>
+      <span class="qs-label">Covered</span>
+    </div>
+    <div class="qs-divider"></div>
+    <div class="qs-item">
+      <span class="qs-val" id="qs-pct">0%</span>
+      <span class="qs-label">Progress</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE: MY FILES
+═══════════════════════════════════════════════ -->
+<section id="page-files" class="page">
+  <div class="section-wrap">
+    <div class="section-header">
+      <div>
+        <div class="section-title">My Files</div>
+        <div class="section-subtitle">Upload and manage your study PDFs · Files are identified by name</div>
+      </div>
+      <span class="chip" id="fileCountChip">0 / 5 files</span>
+    </div>
+
+    <!-- Upload Zone -->
+    <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Upload PDF files">
+      <input type="file" accept=".pdf" multiple id="fileInput" style="display:none" onchange="handleFileUpload(event)"/>
+      <div class="upload-icon">📂</div>
+      <h3>Drop PDFs here or click to browse</h3>
+      <p>PDF format only · Duplicate filenames reuse existing data</p>
+      <div class="file-limit-badge" id="limitBadge">Guest: up to 5 files · Sign in with Google for more (coming soon)</div>
+    </div>
+
+    <!-- File List -->
+    <div class="file-list" id="fileList">
+      <div class="empty-state" id="noFilesMsg">
+        <div class="empty-icon">📭</div>
+        <p>No files yet. Drop a PDF above to get started.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE: PDF VIEWER
+═══════════════════════════════════════════════ -->
+<section id="page-viewer" class="page">
+  <div class="section-wrap viewer-section-wrap">
+    <div class="section-header">
+      <div>
+        <div class="section-title">PDF Viewer &amp; Notes</div>
+        <div class="section-subtitle" id="viewerSubtitle">Select a file to start reading</div>
+      </div>
+      <div class="viewer-header-actions">
+        <button class="btn btn-secondary btn-sm" onclick="navTo('files')">← Change File</button>
+        <button class="btn btn-primary btn-sm" id="aiSummaryBtn" onclick="generateSummary()">✨ AI Summary</button>
+      </div>
+    </div>
+
+    <div class="viewer-layout">
+      <!-- ── PDF Panel ── -->
+      <div class="pdf-panel">
+        <div class="pdf-toolbar">
+          <span class="pdf-filename" id="pdfFileName">No file selected</span>
+          <div class="page-nav">
+            <button class="btn btn-ghost btn-sm" id="prevPageBtn" onclick="changePage(-1)" disabled>‹ Prev</button>
+            <span id="pageInfo" class="page-info-text">— / —</span>
+            <button class="btn btn-ghost btn-sm" id="nextPageBtn" onclick="changePage(1)" disabled>Next ›</button>
+          </div>
+          <div class="zoom-controls">
+            <button class="btn btn-ghost btn-sm" onclick="zoomPDF(-0.25)" title="Zoom out">−</button>
+            <span id="zoomDisplay" class="zoom-label">140%</span>
+            <button class="btn btn-ghost btn-sm" onclick="zoomPDF(0.25)" title="Zoom in">+</button>
+          </div>
+        </div>
+
+        <div class="pdf-canvas-wrap" id="pdfCanvasWrap">
+          <!-- Placeholder when no file selected -->
+          <div class="pdf-placeholder" id="pdfPlaceholder">
+            <div class="big-icon">📄</div>
+            <p>Select a file from <strong>My Files</strong> to view it here.</p>
+            <button class="btn btn-primary btn-sm" onclick="navTo('files')">Go to Files</button>
+          </div>
+          <!-- Loading spinner -->
+          <div id="pdfLoadingOverlay" class="pdf-loading" style="display:none;">
+            <div class="spinner"></div>
+            <p>Loading PDF…</p>
+          </div>
+          <!-- PDF Canvas (single canvas, page-at-a-time rendering) -->
+          <canvas id="pdfCanvas" style="display:none;"></canvas>
+        </div>
+      </div>
+
+      <!-- ── Notes Panel ── -->
+      <div class="notes-panel">
+        <div class="notes-header">
+          <h3>📝 Notes</h3>
+          <div class="notes-header-right">
+            <span id="noteSavedAt" class="notes-saved-label">Not saved</span>
+            <button class="btn btn-ghost btn-sm" onclick="saveNotes()">Save</button>
+          </div>
+        </div>
+
+        <div class="notes-toolbar" id="notesToolbar">
+          <button onclick="execCmd('bold')"               title="Bold"><b>B</b></button>
+          <button onclick="execCmd('italic')"             title="Italic"><i>I</i></button>
+          <button onclick="execCmd('underline')"          title="Underline"><u>U</u></button>
+          <button onclick="execCmd('strikeThrough')"      title="Strikethrough">S̶</button>
+          <div class="notes-sep"></div>
+          <button onclick="execCmd('insertUnorderedList')" title="Bullet list">• List</button>
+          <button onclick="execCmd('insertOrderedList')"   title="Ordered list">1. List</button>
+          <div class="notes-sep"></div>
+          <button onclick="execCmd('formatBlock','h2')"    title="Heading">H2</button>
+          <button onclick="execCmd('formatBlock','h3')"    title="Subheading">H3</button>
+          <button onclick="execCmd('formatBlock','p')"     title="Paragraph">¶</button>
+          <div class="notes-sep"></div>
+          <button onclick="insertRule()"                   title="Horizontal rule">—</button>
+          <button onclick="clearNotes()"                   title="Clear notes" class="danger-btn">✕</button>
+        </div>
+
+        <div class="notes-editor"
+             id="notesEditor"
+             contenteditable="true"
+             data-placeholder="Start typing your notes here…&#10;&#10;Use the toolbar above for Bold, Italic, Lists, Headings and more."
+             oninput="onNotesInput()"
+             spellcheck="true">
+        </div>
+
+        <div class="notes-footer">
+          <span id="wordCount">0 words</span>
+          <span id="notesFileLabel" class="notes-file-label">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Summary Box (shown/hidden dynamically) -->
+    <div class="summary-box" id="summaryBox" style="display:none;">
+      <div class="summary-header">
+        <h3>✨ AI Summary</h3>
+        <div class="summary-header-right">
+          <span class="ai-badge">Gemini 2.5 Flash</span>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('summaryBox').style.display='none'">✕ Close</button>
+        </div>
+      </div>
+      <div class="summary-content" id="summaryContent"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE: TOPICS TRACKER
+═══════════════════════════════════════════════ -->
+<section id="page-topics" class="page">
+  <div class="section-wrap">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Topics Tracker</div>
+        <div class="section-subtitle">Track covered and remaining topics per file</div>
+      </div>
+      <div class="topics-header-actions">
+        <button class="btn btn-secondary btn-sm" onclick="openAddTopicModal()">➕ Add Topic</button>
+        <button class="btn btn-primary btn-sm" id="aiTopicsBtn" onclick="extractTopics()">🤖 AI Extract Topics</button>
+      </div>
+    </div>
+
+    <div class="topics-layout">
+      <!-- Sidebar -->
+      <div class="topics-sidebar">
+        <div class="sidebar-card">
+          <h3 class="sidebar-card-title">📁 Select File</h3>
+          <div id="topicsFilePicker">
+            <div class="empty-state small">
+              <p>Upload a file first</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-card">
+          <h3 class="sidebar-card-title">🔍 Filter</h3>
+          <input type="text" id="topicSearchInput" class="form-input" placeholder="Search topics…"
+                 oninput="renderTopicList()" style="font-size:13px;margin-bottom:10px;"/>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="filter-chip active" id="filterAll"       onclick="setTopicFilter('all')">All</button>
+            <button class="filter-chip"        id="filterImportant" onclick="setTopicFilter('important')">⭐ Important</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Topics Panel -->
+      <div class="topics-main-panel">
+        <div class="tab-bar">
+          <button class="tab-btn active" id="tab-remaining" onclick="switchTopicTab('remaining')">
+            Remaining <span class="tab-count" id="remainingCount">0</span>
+          </button>
+          <button class="tab-btn" id="tab-covered" onclick="switchTopicTab('covered')">
+            Covered <span class="tab-count green" id="coveredCount">0</span>
+          </button>
+        </div>
+        <div class="topic-panel">
+          <div id="topicListContainer">
+            <div class="empty-state">
+              <div class="empty-icon">🗂️</div>
+              <p>Select a file, then extract topics with AI or add them manually.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Add Topic Modal -->
+<div class="modal-overlay" id="addTopicModal" onclick="handleOverlayClick(event,'addTopicModal')">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2>Add Topic</h2>
+    <p>Manually add a topic to the selected file's list.</p>
+    <div class="form-group">
+      <label for="addTopicInput">Topic Name</label>
+      <input class="form-input" id="addTopicInput" placeholder="e.g. Chapter 3: Laws of Thermodynamics"
+             onkeydown="if(event.key==='Enter')confirmAddTopic()"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal('addTopicModal')">Cancel</button>
+      <button class="btn btn-primary btn-sm"   onclick="confirmAddTopic()">Add Topic</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE: INSIGHTS
+═══════════════════════════════════════════════ -->
+<section id="page-insights" class="page">
+  <div class="section-wrap">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Study Insights</div>
+        <div class="section-subtitle">Live overview of your study progress across all files</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="renderInsights()">↻ Refresh</button>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="insights-grid" id="insightsGrid"></div>
+
+    <!-- Per-file progress -->
+    <div class="chart-section">
+      <div class="chart-title">📁 Progress by File</div>
+      <div id="fileProgressBars"></div>
+    </div>
+
+    <!-- Bar chart -->
+    <div class="chart-section">
+      <div class="chart-title">📊 Topics per File</div>
+      <div class="bar-chart-wrap">
+        <div class="bar-chart" id="topicsBarChart"></div>
+      </div>
+    </div>
+
+    <!-- Important topics -->
+    <div class="chart-section">
+      <div class="chart-title">⭐ Important Topics</div>
+      <div id="importantTopicsList" class="chip-cloud"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE: HELP
+═══════════════════════════════════════════════ -->
+<section id="page-help" class="page">
+  <div class="section-wrap">
+    <div class="section-header">
+      <div class="section-title">Help &amp; Guide</div>
+      <div class="section-subtitle">Everything you need to use StudyTrack</div>
+    </div>
+
+    <div class="help-grid">
+
+      <div class="help-card">
+        <h3>🚀 Getting Started</h3>
+        <div class="help-step">
+          <div class="step-num">1</div>
+          <p>Your <strong>Guest ID</strong> is auto-generated on first visit. Click the badge in the top-right to view or change it. Save it to restore your data later.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">2</div>
+          <p>Go to <strong>My Files</strong> and drag-drop or click to upload up to 5 PDFs. Files are tracked by their exact filename.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">3</div>
+          <p>Click <strong>Open</strong> on any file to jump straight to the PDF Viewer with your notes panel on the right.</p>
+        </div>
+      </div>
+
+      <div class="help-card">
+        <h3>🤖 Gemini API Setup</h3>
+        <div class="help-step">
+          <div class="step-num">1</div>
+          <p>Visit <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="help-link">aistudio.google.com → API Keys</a> and click <em>Create API Key</em>. It's free.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">2</div>
+          <p>Open <code>app.js</code> in any text editor. Near the very top, find:<br/><code>const GEMINI_API_KEY = "YOUR_KEY_HERE";</code></p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">3</div>
+          <p>Replace <code>YOUR_KEY_HERE</code> with your actual key. Save the file, reload the site. AI features are now active.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">4</div>
+          <p><strong>Model:</strong> <code>gemini-2.5-flash</code> — Google's fastest multimodal model that reads entire PDFs in one request.</p>
+        </div>
+      </div>
+
+      <div class="help-card">
+        <h3>📋 Managing Topics</h3>
+        <div class="help-step">
+          <div class="step-num">1</div>
+          <p>In <strong>Topics</strong>, select a file from the sidebar. Click <em>🤖 AI Extract Topics</em> to let Gemini analyse and classify topics automatically.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">2</div>
+          <p>Check ✓ next to any topic to mark it <strong>covered</strong>. It moves to the Covered tab. Un-check to move it back.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">3</div>
+          <p>Click ⭐ to mark a topic as <strong>important</strong>. Use the filter chip to show only important topics.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">4</div>
+          <p>Click 🗑️ to delete any topic. Add new ones manually with the <em>➕ Add Topic</em> button.</p>
+        </div>
+      </div>
+
+      <div class="help-card">
+        <h3>📄 PDF Viewer Tips</h3>
+        <div class="help-step">
+          <div class="step-num">1</div>
+          <p>Use <strong>‹ Prev</strong> and <strong>Next ›</strong> to navigate between pages. The current page and total are shown in the toolbar.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">2</div>
+          <p>Use <strong>− / +</strong> to zoom in or out. The zoom % is shown between the buttons.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">3</div>
+          <p>Click <strong>✨ AI Summary</strong> to generate a structured study summary of the open PDF. Requires a Gemini API key.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">4</div>
+          <p>Notes are auto-saved as you type and are linked per file. Switching files swaps the notes panel automatically.</p>
+        </div>
+      </div>
+
+      <div class="help-card">
+        <h3>💾 Data &amp; Guest ID</h3>
+        <div class="help-step">
+          <div class="step-num">1</div>
+          <p>PDFs are stored in your browser's <strong>IndexedDB</strong> (much larger than localStorage). Topics and notes use <strong>localStorage</strong>.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">2</div>
+          <p>Data is stored locally on your device — it's private and requires no account. Guest limit is <strong>5 files</strong>.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">3</div>
+          <p>Uploading a file with the same name as an existing one will reuse that file's notes and topics — no duplicate entries.</p>
+        </div>
+      </div>
+
+      <div class="help-card">
+        <h3>🚀 Deploying to GitHub Pages</h3>
+        <div class="help-step">
+          <div class="step-num">1</div>
+          <p>Create a GitHub repo. Upload <code>index.html</code>, <code>styles.css</code>, and <code>app.js</code> to the root.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">2</div>
+          <p>In the repo, go to <strong>Settings → Pages → Source</strong>, select <em>main branch / root</em>, and save.</p>
+        </div>
+        <div class="help-step">
+          <div class="step-num">3</div>
+          <p>Your site is live at <code>https://username.github.io/repo-name</code>. No backend server needed — Gemini API is called directly from your browser.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE: CONTACT
+═══════════════════════════════════════════════ -->
+<section id="page-contact" class="page">
+  <div class="section-wrap">
+    <div class="section-header">
+      <div class="section-title">Contact</div>
+      <div class="section-subtitle">Get in touch or send feedback</div>
+    </div>
+    <div class="contact-wrap">
+      <div class="contact-card">
+        <div class="contact-avatar">👨‍💻</div>
+        <div class="contact-name">Developer</div>
+        <div class="contact-role">Built with ❤️ for students everywhere</div>
+        <div class="contact-links">
+          <a href="mailto:your@email.com" class="contact-link">✉️ Email</a>
+          <a href="https://github.com/yourusername" target="_blank" rel="noopener" class="contact-link">🐙 GitHub</a>
+          <a href="https://linkedin.com/in/yourprofile" target="_blank" rel="noopener" class="contact-link">💼 LinkedIn</a>
+        </div>
+
+        <div class="contact-form">
+          <div class="divider" style="margin:24px 0;"></div>
+          <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">Send a Message</h3>
+          <div class="form-group">
+            <label for="contactName">Your Name</label>
+            <input type="text" class="form-input" id="contactName" placeholder="Your name…" autocomplete="name"/>
+          </div>
+          <div class="form-group">
+            <label for="contactEmail">Email</label>
+            <input type="email" class="form-input" id="contactEmail" placeholder="your@email.com" autocomplete="email"/>
+          </div>
+          <div class="form-group">
+            <label for="contactMsg">Message</label>
+            <textarea class="form-textarea" id="contactMsg" placeholder="Feature request, bug report, or just say hi…" rows="4"></textarea>
+          </div>
+          <button class="btn btn-primary contact-submit-btn" onclick="submitContact()">Send Message →</button>
+          <p class="contact-note">Powered by Formspree — replace the endpoint in app.js with your own.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     APP SCRIPT
+═══════════════════════════════════════════════ -->
+<script src="app.js"></script>
+
+</body>
+</html>
